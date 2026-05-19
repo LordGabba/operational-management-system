@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html lang="pt-BR" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Sistema de Gestão Operacional de Colaboradores">
+    <meta name="theme-color" content="#0052cc">
+    
+    <title>Login - Sistema de Gestão Operacional</title>
+    
+    <!-- CSS -->
+    <link rel="stylesheet" href="/css/style.css">
+    <link rel="stylesheet" href="/css/components.css">
+    <link rel="stylesheet" href="/css/responsive.css">
+    
+    <style>
+        .login-container {
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-info) 100%);
+        }
+        
+        .login-box {
+            background-color: var(--color-bg-primary);
+            border-radius: var(--radius-2xl);
+            box-shadow: var(--shadow-xl);
+            padding: var(--spacing-2xl);
+            width: 100%;
+            max-width: 420px;
+        }
+        
+        .login-header {
+            text-align: center;
+            margin-bottom: var(--spacing-2xl);
+        }
+        
+        .login-logo {
+            font-size: 3rem;
+            margin-bottom: var(--spacing-md);
+        }
+        
+        .login-title {
+            font-size: var(--font-size-2xl);
+            font-weight: var(--font-weight-bold);
+            margin: 0;
+            color: var(--color-text-primary);
+        }
+        
+        .login-subtitle {
+            color: var(--color-text-tertiary);
+            margin-top: var(--spacing-sm);
+        }
+        
+        .login-form {
+            display: flex;
+            flex-direction: column;
+            gap: var(--spacing-lg);
+        }
+        
+        .login-footer {
+            text-align: center;
+            color: var(--color-text-tertiary);
+            font-size: var(--font-size-sm);
+            margin-top: var(--spacing-lg);
+        }
+        
+        .theme-toggle {
+            position: fixed;
+            top: var(--spacing-lg);
+            right: var(--spacing-lg);
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            background-color: rgba(255, 255, 255, 0.2);
+            border: none;
+            color: white;
+            cursor: pointer;
+            font-size: var(--font-size-lg);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all var(--transition-base);
+        }
+        
+        .theme-toggle:hover {
+            background-color: rgba(255, 255, 255, 0.3);
+        }
+    </style>
+</head>
+<body>
+    <!-- Botão de Tema -->
+    <button class="theme-toggle" onclick="toggleTheme()" title="Alternar tema">
+        <span id="theme-icon">🌙</span>
+    </button>
+    
+    <!-- Container de Login -->
+    <div class="login-container">
+        <div class="login-box fade-in">
+            <!-- Header -->
+            <div class="login-header">
+                <div class="login-logo">📊</div>
+                <h1 class="login-title">Gestão Operacional</h1>
+                <p class="login-subtitle">Sistema de Colaboradores</p>
+            </div>
+            
+            <!-- Formulário -->
+            <form class="login-form" onsubmit="handleLogin(event)">
+                <!-- Email -->
+                <div class="form-group">
+                    <label for="email">E-mail</label>
+                    <input
+                        type="email"
+                        id="email"
+                        name="email"
+                        placeholder="seu@email.com"
+                        required
+                        autofocus
+                    >
+                    <div class="form-help">Insira seu e-mail corporativo</div>
+                </div>
+                
+                <!-- Senha -->
+                <div class="form-group">
+                    <label for="password">Senha</label>
+                    <input
+                        type="password"
+                        id="password"
+                        name="password"
+                        placeholder="••••••••"
+                        required
+                    >
+                    <div class="form-help">Mínimo 8 caracteres</div>
+                </div>
+                
+                <!-- Lembrar-me -->
+                <div class="form-group">
+                    <label style="display: flex; align-items: center; gap: var(--spacing-sm); font-weight: normal;">
+                        <input type="checkbox" name="remember" id="remember">
+                        Lembrar-me neste dispositivo
+                    </label>
+                </div>
+                
+                <!-- Botão Submit -->
+                <button type="submit" class="btn btn-primary btn-large">
+                    Entrar no Sistema
+                </button>
+                
+                <!-- Link Recuperar Senha -->
+                <div style="text-align: center;">
+                    <a href="#" onclick="showResetPasswordModal(event)" style="font-size: var(--font-size-sm);">
+                        Esqueceu sua senha?
+                    </a>
+                </div>
+            </form>
+            
+            <!-- Footer -->
+            <div class="login-footer">
+                <p>
+                    Sistema seguro com autenticação de dois fatores<br>
+                    <small>&copy; 2025 - Todos os direitos reservados</small>
+                </p>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Toast Container -->
+    <div id="toast-container" class="toast-container"></div>
+    
+    <!-- Scripts -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.0"></script>
+    <script src="/js/utils.js"></script>
+    <script src="/js/ui.js"></script>
+    <script src="/js/supabase.js"></script>
+    <script src="/js/auth.js"></script>
+    
+    <script>
+        /**
+         * Manipula login
+         */
+        async function handleLogin(event) {
+            event.preventDefault();
+            
+            const email = document.getElementById('email').value.trim();
+            const password = document.getElementById('password').value;
+            const remember = document.getElementById('remember').checked;
+            
+            try {
+                await performLogin(email, password);
+                
+                if (remember) {
+                    saveToStorage('last_email', email);
+                }
+            } catch (error) {
+                console.error('Erro:', error);
+            }
+        }
+        
+        /**
+         * Mostra modal de recuperação de senha
+         */
+        function showResetPasswordModal(event) {
+            event.preventDefault();
+            
+            const modalId = showModal({
+                title: 'Recuperar Senha',
+                content: `
+                    <form onsubmit="handlePasswordReset(event)">
+                        <div class="form-group">
+                            <label for="reset-email">E-mail de recuperação</label>
+                            <input
+                                type="email"
+                                id="reset-email"
+                                placeholder="seu@email.com"
+                                required
+                            >
+                            <div class="form-help">
+                                Enviaremos um link de recuperação para seu e-mail
+                            </div>
+                        </div>
+                    </form>
+                `,
+                buttons: [
+                    {
+                        label: 'Cancelar',
+                        callback: () => { },
+                        class: 'btn-secondary'
+                    },
+                    {
+                        label: 'Enviar',
+                        callback: () => {
+                            const form = document.querySelector('.modal-body form');
+                            form.dispatchEvent(new Event('submit'));
+                        },
+                        class: 'btn-primary'
+                    }
+                ],
+                size: 'small'
+            });
+        }
+        
+        /**
+         * Manipula recuperação de senha
+         */
+        async function handlePasswordReset(event) {
+            event.preventDefault();
+            
+            const email = document.getElementById('reset-email').value;
+            
+            try {
+                const { error } = await supabase.auth.resetPasswordForEmail(email, {
+                    redirectTo: window.location.origin + '/reset-password.html'
+                });
+                
+                if (error) throw error;
+                
+                showToast(
+                    'Link de recuperação enviado para seu e-mail. Verifique sua caixa de entrada.',
+                    'success',
+                    5000
+                );
+            } catch (error) {
+                showToast(`Erro ao enviar link: ${error.message}`, 'error');
+            }
+        }
+        
+        /**
+         * Carrega e-mail salvo (se houver)
+         */
+        function initLoginPage() {
+            const savedEmail = getFromStorage('last_email');
+            if (savedEmail) {
+                document.getElementById('email').value = savedEmail;
+            }
+            
+            // Validar se já está autenticado
+            getCurrentUser().then(user => {
+                if (user) {
+                    window.location.href = '/index.html';
+                }
+            });
+        }
+        
+        /**
+         * Atualiza ícone do tema
+         */
+        function updateThemeIcon() {
+            const icon = document.getElementById('theme-icon');
+            const theme = getCurrentTheme();
+            icon.textContent = theme === 'light' ? '🌙' : '☀️';
+        }
+        
+        // Inicializar página
+        document.addEventListener('DOMContentLoaded', () => {
+            initLoginPage();
+            updateThemeIcon();
+            
+            // Atualizar ícone ao trocar tema
+            const observer = new MutationObserver(updateThemeIcon);
+            observer.observe(document.documentElement, { attributes: true });
+        });
+    </script>
+</body>
+</html>
