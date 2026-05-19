@@ -901,7 +901,10 @@ async function confirmarImportacao(dados) {
       if (error) throw error;
     }
 
-    toast(`${mapeados.length} registros importados com sucesso!`, 'success');
+    toast(`${mapeados.length} registros importados com sucesso!`, 'success'); if (destino === 'colaboradores') {
+  APP.dados.colaboradores = await DB.colaboradores.listar(APP.filtros.colaboradores);
+  renderizarTabelaColaboradores();
+}
     document.getElementById('import-preview').innerHTML = '';
     window._dadosImport = null;
   } catch (e) { toast('Erro na importação: ' + e.message, 'error'); }
