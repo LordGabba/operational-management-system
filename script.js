@@ -834,13 +834,25 @@ async function processarArquivoImportacao(file) {
 }
 
 function parsearCSV(texto) {
-  const linhas = texto.split('\n').filter(l => l.trim());
+  const linhas = texto.split(/\r?\n/).filter(l => l.trim());
   if (!linhas.length) return [];
-  const headers = linhas[0].split(',').map(h => h.trim().replace(/['"]/g, ''));
+
+  const separador = linhas[0].includes(';') ? ';' : ',';
+
+  const headers = linhas[0]
+    .split(separador)
+    .map(h => h.trim().replace(/^"|"$/g, ''));
+
   return linhas.slice(1).map(linha => {
-    const valores = linha.split(',').map(v => v.trim().replace(/['"]/g, ''));
+    const valores = linha
+      .split(separador)
+      .map(v => v.trim().replace(/^"|"$/g, ''));
+
     const obj = {};
-    headers.forEach((h, i) => { obj[h] = valores[i] || ''; });
+    headers.forEach((h, i) => {
+      obj[h] = valores[i] || '';
+    });
+
     return obj;
   });
 }
@@ -905,60 +917,76 @@ async function confirmarImportacao(dados) {
   const destino = document.getElementById('import-destino')?.value || 'colaboradores';
   toast(`Importando ${dados.length} registros...`, 'info');
 
+  const limpar = v => String(v ?? '').trim();
+
+  const get = (obj, nomes) => {
+    for (const nome of nomes) {
+      if (obj[nome] !== undefined && obj[nome] !== null && String(obj[nome]).trim() !== '') {
+        return String(obj[nome]).trim();
+      }
+    }
+    return '';
+  };
+
+  const numero = v => {
+    const valor = limpar(v).replace(',', '.');
+    return valor === '' ? null : Number(valor);
+  };
+
+  const data = v => {
+    const valor = limpar(v);
+    return valor === '' ? null : valor;
+  };
+
   try {
     const mapeados = dados.map(d => ({
-      nome: obterCampoImportacao(d, ['nome', 'colaborador', 'funcionario', 'funcionário', 'nome completo']),
-      matricula: obterCampoImportacao(d, ['matricula', 'matrícula', 'matricula funcional', 'id']) || null,
-      email: obterCampoImportacao(d, ['email', 'e-mail']),
-      celula: obterCampoImportacao(d, ['celula', 'célula']),
-      status: obterCampoImportacao(d, ['status', 'situacao', 'situação']) || 'Ativo',
-      cargo: obterCampoImportacao(d, ['cargo', 'funcao', 'função']),
-      cpf: obterCampoImportacao(d, ['cpf']),
-      filial: obterCampoImportacao(d, ['filial']),
-      grupo: obterCampoImportacao(d, ['grupo']),
-      horario: obterCampoImportacao(d, ['horario', 'horário']),
-      escala: obterCampoImportacao(d, ['escala']),
-      supervisor: obterCampoImportacao(d, ['supervisor']),
+      matricula: get(d, ['matricula', 'Matrícula', 'MATRICULA', 'MATRÍCULA']),
+      centro_custo: get(d, ['Centro de custo', 'centro_custo', 'CENTRO DE CUSTO']),
+      nome: get(d, ['Colaborador', 'COLABORADOR', 'Nome', 'NOME', 'nome']),
+      user_jira: get(d, ['User Jira', 'USER JIRA']),
+      user_blip: get(d, ['User Blip', 'USER BLIP']),
+      reporte: get(d, ['Reporte', 'REPORTE']),
+      status: get(d, ['Status', 'STATUS']) || 'Ativo',
+      celula: get(d, ['Célula', 'Celula', 'CÉLULA']),
+      grupo: get(d, ['Grupo', 'GRUPO']),
+      tipo: get(d, ['Tipo', 'TIPO']),
+      horario: get(d, ['Horario', 'Horário', 'HORÁRIO']),
+      escala: get(d, ['Escala', 'ESCALA']),
+      admissao: data(get(d, ['Admissão', 'Admissao', 'ADMISSÃO'])),
+      cargo: get(d, ['Cargo', 'CARGO']),
+      cpf: get(d, ['Cpf', 'CPF']),
+      data_nasc: data(get(d, ['Data Nasc', 'Data Nascimento', 'DATA NASC'])),
+      sexo: get(d, ['Sexo', 'SEXO']),
+      filial: get(d, ['Filial', 'FILIAL']),
+      area: get(d, ['Área', 'Area', 'ÁREA']),
+      telefone: get(d, ['Telefone', 'TELEFONE']),
+      primeiro_dia_ferias: data(get(d, ['Primeiro dia férias', 'Primeiro dia de férias'])),
+      ultimo_dia_ferias: data(get(d, ['Último dia férias', 'Ultimo dia ferias'])),
+      turno: get(d, ['Turno', 'TURNO']),
+      supervisor: get(d, ['Supervisor', 'SUPERVISOR']),
+      coordenador: get(d, ['Coordenador', 'COORDENADOR']),
+      banco_horas: numero(get(d, ['Banco de horas', 'Banco Horas'])),
+      jornada_semanal: numero(get(d, ['Jornada semanal', 'Jornada Semanal'])) || 44
     })).filter(d => d.nome);
 
     if (!mapeados.length) {
-      const colunas = Object.keys(dados[0] || {}).join(', ');
-      toast(`Nenhum registro válido para importar. Não encontrei coluna de nome. Colunas lidas: ${colunas}`, 'error');
+      toast('Nenhum registro válido. Não encontrei a coluna Colaborador/Nome.', 'error');
       return;
     }
 
-    let importados = [];
-
     if (destino === 'colaboradores') {
-      importados = await DB.colaboradores.importarLote(mapeados);
-
-      APP.dados.colaboradores = await DB.colaboradores.listar(APP.filtros.colaboradores);
-      preencherFiltrosColaboradores();
-      renderizarTabelaColaboradores();
-
-    } else if (destino === 'staff') {
-      const { data, error } = await db
-        .from('staff')
-        .upsert(mapeados, { onConflict: 'matricula' })
-        .select();
-
-      if (error) throw error;
-
-      importados = data || [];
-      APP.dados.staff = await DB.staff.listar(APP.filtros.staff);
-      renderizarTabelaStaff();
+      await DB.colaboradores.importarLote(mapeados);
+      await carregarColaboradores();
     }
 
-    toast(`${importados.length} registros salvos no banco de dados!`, 'success');
+    toast(`${mapeados.length} registros importados com sucesso!`, 'success');
     document.getElementById('import-preview').innerHTML = '';
     window._dadosImport = null;
 
   } catch (e) {
-    console.error('Erro na importação:', e);
     toast('Erro na importação: ' + e.message, 'error');
   }
 }
-
 // ============================================================
 // CONFIGURAÇÕES
 // ============================================================
