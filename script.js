@@ -895,8 +895,14 @@ async function confirmarImportacao(dados) {
     })).filter(d => d.nome);
 
     if (destino === 'colaboradores') {
-      await DB.colaboradores.importarLote(mapeados);
-    } else if (destino === 'staff') {
+  await DB.colaboradores.importarLote(mapeados);
+
+  APP.dados.colaboradores = await DB.colaboradores.listar(
+    APP.filtros.colaboradores
+  );
+
+  renderizarTabelaColaboradores();
+} else if (destino === 'staff') {
       const { data, error } = await db.from('staff').upsert(mapeados, { onConflict: 'matricula' });
       if (error) throw error;
     }
