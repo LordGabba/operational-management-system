@@ -883,7 +883,7 @@ async function confirmarImportacao(dados) {
     // Mapear campos comuns
     const mapeados = dados.map(d => ({
       nome: d.nome || d.Colaborador || d.COLABORADOR || d.Nome || '',
-      matricula: d.matricula || d.Matrícula || d.MATRICULA || '',
+      matricula: String(d.matricula || d.Matrícula || d.MATRICULA || '').trim() || null,
       email: d.email || d.Email || d.EMAIL || '',
       celula: d.celula || d.Célula || d.CELULA || '',
       status: d.status || d.Status || 'Ativo',
